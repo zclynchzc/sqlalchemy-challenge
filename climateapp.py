@@ -14,8 +14,7 @@ Base.prepare(engine, reflect=True)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
-def calc_temps(start_date, end_date):
-    session = Session(engine)
+def calc_temps(session, start_date, end_date):
     return session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
 
 app = Flask(__name__)
@@ -44,6 +43,7 @@ def precipitation():
     for x in prcp_data:
         dateprcp_list.append(x[0])
         prcp_list.append(x[1])
+    session.close()
     return jsonify(dict(zip(dateprcp_list, prcp_list)))
 
 @app.route("/api/v1.0/stations")
@@ -52,6 +52,7 @@ def stations():
     station_list = []
     for y in session.query(Measurement.station).distinct().all():
         station_list.append(y[0])
+    session.close()
     return jsonify(station_list)
 
 @app.route("/api/v1.0/tobs")
@@ -66,18 +67,22 @@ def tobs():
     for x in temp_data:
         datetobs_list.append(x[0])
         temp_list.append(x[1])
+    session.close()
     return jsonify(dict(zip(datetobs_list, temp_list)))
 
 @app.route("/api/v1.0/<start>")
 def temp_start(start):
     session = Session(engine)
     last_entry_start = session.query(Measurement.date).order_by(Measurement.date.desc()).all()[0][0]
-    start_data = calc_temps(start, last_entry_start)
+    start_data = calc_temps(session, start, last_entry_start)
+    session.close()
     return jsonify(start_data)
 
 @app.route("/api/v1.0/<start>/<end>")
 def temp_start_end(start, end):
-    startend_data = calc_temps(start, end)
+    session = Session(engine)
+    startend_data = calc_temps(session, start, end)
+    session.close()
     return jsonify(startend_data)
 
 if __name__ == "__main__":
